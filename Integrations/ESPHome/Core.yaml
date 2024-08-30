@@ -1,10 +1,10 @@
 substitutions:
-  name: apollo-temp-pro-1 # TODO: Rename
-  version: "24.8.7.2"
+  name: apollo-temp-pro-1
+  version: "24.8.27.1"
   device_description: ${name} made by Apollo Automation - version ${version}.
 
 esp32:
-  board: esp32-c3-devkitm-1
+  board: esp32-s3-devkitc-1
   framework:
     type: esp-idf
 
@@ -26,7 +26,9 @@ web_server:
 
 ethernet:
   type: W5500
-  clk_pin: GPIO3
-  mosi_pin: GPIO8
-  miso_pin: GPIO2
-  cs_pin: GPIO9
+  clk_pin: GPIO39
+  mosi_pin: GPIO40
+  miso_pin: GPIO37
+  cs_pin: GPIO42
+  interrupt_pin: GPIO11
+  reset_pin: GPIO12
