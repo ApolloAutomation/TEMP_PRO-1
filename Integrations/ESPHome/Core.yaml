@@ -9,7 +9,13 @@ esp32:
     type: esp-idf
 
 api:
-
+  services:
+    - service: play_buzzer
+      variables:
+        song_str: string
+      then:
+        - rtttl.play:
+            rtttl: !lambda 'return song_str;'
 globals:
   - id: cycleCounter
     type: int
@@ -20,15 +26,100 @@ globals:
     type: uint32_t
     initial_value: '0'
 
+i2c:
+  sda: GPIO8
+  scl: GPIO9
+  id: bus_a
 
-web_server:
+web_server:  
   port: 80
-
-ethernet:
-  type: W5500
-  clk_pin: GPIO39
-  mosi_pin: GPIO40
-  miso_pin: GPIO37
-  cs_pin: GPIO42
-  interrupt_pin: GPIO11
+  
+ethernet:  
+  type: W5500  
+  clk_pin: GPIO39  
+  mosi_pin: GPIO40  
+  miso_pin: GPIO37  
+  cs_pin: GPIO42  
+  interrupt_pin: GPIO11  
   reset_pin: GPIO12
+
+one_wire:
+  - platform: gpio
+    pin: GPIO14
+
+# Buzzer
+output:
+  - platform: ledc
+    pin: GPIO36
+    id: buzzer
+
+rtttl:
+ output: buzzer
+
+binary_sensor:
+  - platform: status
+    name: Online
+    id: ink_ha_connected
+  - platform: gpio
+    pin: 
+      number: GPIO0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    id: reset_button
+
+sensor:
+  - platform: internal_temperature
+    name: "ESP Temperature"
+    id: sys_esp_temperature
+
+  - platform: uptime
+    name: Uptime
+    id: sys_uptime
+    update_interval: 60s
+
+  - platform: dallas_temp
+    name: "Temperature Probe"
+    update_interval: 5s
+    id: temp_probe
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: rgb_light
+    name: "RGB Light"
+    pin: GPIO16
+    rmt_channel: 0
+    default_transition_length: 0s
+    chipset: WS2812
+    num_leds: 4
+    rgb_order: grb
+    effects:
+      - pulse:
+          name: "Slow Pulse"
+          transition_length: 1000ms
+          update_interval: 1000ms
+          min_brightness: 0%
+          max_brightness: 100%
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 100ms
+          update_interval: 100ms
+          min_brightness: 50%
+          max_brightness: 100%
+
+button:
+  - platform: restart
+    icon: mdi:power-cycle
+    name: "ESP Reboot"
+
+  - platform: factory_reset
+    disabled_by_default: True
+    name: "Factory Reset ESP"
+    id: factory_reset_all
+
+
+switch:
+  - platform: factory_reset
+    id: factory_reset_switch
+    internal: true
