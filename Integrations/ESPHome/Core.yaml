@@ -1,10 +1,11 @@
 substitutions:
   name: apollo-temp-pro-1
-  version: "24.8.27.1"
+  version: "24.10.31.2"
   device_description: ${name} made by Apollo Automation - version ${version}.
 
 esp32:
   board: esp32-s3-devkitc-1
+  variant: esp32s3
   framework:
     type: esp-idf
 
@@ -27,8 +28,8 @@ globals:
     initial_value: '0'
 
 i2c:
-  sda: GPIO8
-  scl: GPIO9
+  sda: GPIO16
+  scl: GPIO17
   id: bus_a
 
 web_server:  
@@ -36,21 +37,21 @@ web_server:
   
 ethernet:  
   type: W5500  
-  clk_pin: GPIO39  
-  mosi_pin: GPIO40  
-  miso_pin: GPIO37  
-  cs_pin: GPIO42  
-  interrupt_pin: GPIO11  
-  reset_pin: GPIO12
+  clk_pin: GPIO10  
+  mosi_pin: GPIO12 
+  miso_pin: GPIO11
+  cs_pin: GPIO9
+  interrupt_pin: GPIO13
+  reset_pin: GPIO14
 
 one_wire:
   - platform: gpio
-    pin: GPIO14
+    pin: GPIO6
 
 # Buzzer
 output:
   - platform: ledc
-    pin: GPIO36
+    pin: GPIO8
     id: buzzer
 
 rtttl:
@@ -84,11 +85,19 @@ sensor:
     update_interval: 5s
     id: temp_probe
 
+  - platform: sht3xd
+    temperature:
+      name: "Probe Temperature"
+    humidity:
+      name: "Probe Humidity"
+    address: 0x44
+    update_interval: 60s
+
 light:
   - platform: esp32_rmt_led_strip
     id: rgb_light
     name: "RGB Light"
-    pin: GPIO16
+    pin: GPIO4
     rmt_channel: 0
     default_transition_length: 0s
     chipset: WS2812
@@ -123,3 +132,11 @@ switch:
   - platform: factory_reset
     id: factory_reset_switch
     internal: true
+
+
+## TODO: Add Update
+## TODO: Add Update Frequency Control
+## TODO: Add Beep for outside temp/humidity range
+## TODO: LED Blinks outside temp/humidity range
+## TODO: LED range for yellow/red
+## TODO: Add offset

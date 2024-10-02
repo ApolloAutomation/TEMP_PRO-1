@@ -10,7 +10,7 @@ esphome:
     name: "ApolloAutomation.TEMP_PRO-1"
     version: "${version}"
 
-  min_version: 2023.11.1
+  min_version: 2024.8.3
 
 dashboard_import:
   package_import_url: github://ApolloAutomation/TEMP_PRO-1/Integrations/ESPHome/TEMP_PRO-1.yaml
