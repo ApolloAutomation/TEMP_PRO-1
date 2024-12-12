@@ -57,6 +57,25 @@ output:
 rtttl:
  output: buzzer
 
+select:
+  - platform: template
+    name: "Temp Probe select"
+    optimistic: true
+    restore_value: true
+    initial_option: Dallas
+    id: temp_probe_select
+    set_action:
+      - if:
+          condition:
+            lambda: 'return x == "Dallas";'
+          then:
+            - switch.turn_on: sensor_selector
+          else:
+            - switch.turn_off: sensor_selector
+    options:
+      - Dallas
+      - Food
+
 binary_sensor:
   - platform: status
     name: Online
@@ -84,6 +103,31 @@ sensor:
     name: "Temperature Probe"
     update_interval: 5s
     id: temp_probe
+
+  - platform: ntc
+    id: ntc_sensor
+    name: Food Probe
+    sensor: resistance_sensor
+    calibration:
+      b_constant: 3950
+      reference_temperature: 25°C
+      reference_resistance: 100kOhm
+
+  - platform: resistance
+    id: resistance_sensor
+    sensor: source_sensor
+    configuration: UPSTREAM
+    reference_voltage: 3.3V
+    resistor: 100kOhm
+    name: Resistance Sensor
+    internal: true
+
+  - platform: adc
+    pin: 
+      number: GPIO7
+    id: source_sensor
+    update_interval: never
+    attenuation: auto
 
   - platform: sht3xd
     temperature:
@@ -131,6 +175,13 @@ button:
 switch:
   - platform: factory_reset
     id: factory_reset_switch
+    internal: true
+  - platform: gpio
+    pin: GPIO15
+    id: sensor_selector
+    restore_mode: RESTORE_DEFAULT_ON
+    entity_category: "config"
+    setup_priority: 1100
     internal: true
 
 
