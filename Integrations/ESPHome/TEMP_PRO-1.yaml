@@ -10,13 +10,11 @@ esphome:
     name: "ApolloAutomation.TEMP_PRO-1"
     version: "${version}"
 
-  min_version: 2024.8.3
+  min_version: 2025.2.0
 
 dashboard_import:
   package_import_url: github://ApolloAutomation/TEMP_PRO-1/Integrations/ESPHome/TEMP_PRO-1.yaml
   import_full_config: false
-
-
 
 ota:
   - platform: esphome
@@ -33,7 +31,7 @@ update:
   - platform: http_request
     id: firmware_update
     name: Firmware Update
-    source: https://apolloautomation.github.io/TEMP_PRO-1/artifact/manifest.json
+    source: https://apolloautomation.github.io/TEMP_PRO-1/firmware-l/manifest.json
 
 
 logger:

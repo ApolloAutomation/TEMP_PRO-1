@@ -1,6 +1,6 @@
 substitutions:
   name: apollo-temp-pro-1
-  version: "24.10.31.2"
+  version: "25.2.24.1"
   device_description: ${name} made by Apollo Automation - version ${version}.
 
 esp32:
@@ -55,26 +55,9 @@ output:
     id: buzzer
 
 rtttl:
- output: buzzer
+  id: rtttl_buzzer
+  output: buzzer
 
-select:
-  - platform: template
-    name: "Temp Probe select"
-    optimistic: true
-    restore_value: true
-    initial_option: Dallas
-    id: temp_probe_select
-    set_action:
-      - if:
-          condition:
-            lambda: 'return x == "Dallas";'
-          then:
-            - switch.turn_on: sensor_selector
-          else:
-            - switch.turn_off: sensor_selector
-    options:
-      - Dallas
-      - Food
 
 binary_sensor:
   - platform: status
@@ -89,6 +72,12 @@ binary_sensor:
         pullup: true
     id: reset_button
 
+  - platform: template
+    name: Temperature Within Range
+    id: temp_within_range
+    lambda: 'return (id(sht_temperature).state < id(max_temp).state) && (id(sht_temperature).state > id(min_temp).state) && id(alarm_outside_temp_range).state;'
+
+
 sensor:
   - platform: internal_temperature
     name: "ESP Temperature"
@@ -99,50 +88,20 @@ sensor:
     id: sys_uptime
     update_interval: 60s
 
-  - platform: dallas_temp
-    name: "Temperature Probe"
-    update_interval: 5s
-    id: temp_probe
-
-  - platform: ntc
-    id: ntc_sensor
-    name: Food Probe
-    sensor: resistance_sensor
-    calibration:
-      b_constant: 3950
-      reference_temperature: 25°C
-      reference_resistance: 100kOhm
-
-  - platform: resistance
-    id: resistance_sensor
-    sensor: source_sensor
-    configuration: UPSTREAM
-    reference_voltage: 3.3V
-    resistor: 100kOhm
-    name: Resistance Sensor
-    internal: true
-
-  - platform: adc
-    pin: 
-      number: GPIO7
-    id: source_sensor
-    update_interval: never
-    attenuation: auto
-
-  - platform: sht3xd
+  - platform: sht4x_custom
     temperature:
-      name: "Probe Temperature"
+      name: "Temperature"
+      id: sht_temperature
     humidity:
-      name: "Probe Humidity"
-    address: 0x44
-    update_interval: 60s
+      name: "Relative Humidity"
+      id: sht_humidity
+
 
 light:
   - platform: esp32_rmt_led_strip
     id: rgb_light
     name: "RGB Light"
     pin: GPIO4
-    rmt_channel: 0
     default_transition_length: 0s
     chipset: WS2812
     num_leds: 4
@@ -171,19 +130,62 @@ button:
     name: "Factory Reset ESP"
     id: factory_reset_all
 
+number:
+  - platform: template
+    id: min_temp
+    name: Min Temperature
+    min_value: -20
+    max_value: 50
+    step: 0.1
+    unit_of_measurement: '°C'
+    initial_value: -20
+    optimistic: true
+    update_interval: never
+    mode: box
+
+  - platform: template
+    id: max_temp
+    name: Max Temperature
+    min_value: -20
+    max_value: 50
+    step: 0.1
+    unit_of_measurement: '°C'
+    initial_value: 200
+    optimistic: true
+    update_interval: never
+    mode: box
 
 switch:
   - platform: factory_reset
     id: factory_reset_switch
     internal: true
   - platform: gpio
-    pin: GPIO15
-    id: sensor_selector
-    restore_mode: RESTORE_DEFAULT_ON
-    entity_category: "config"
+    pin: GPIO5
+    name: "Accessory Power"
+    id: accessory_power
+    restore_mode: ALWAYS_ON
     setup_priority: 1100
     internal: true
+  - platform: template
+    name: "Alarm Outside Temp Range"
+    id: alarm_outside_temp_range    
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
 
+interval:  
+  - interval: 10s    
+    then:
+      if:
+        condition:
+          binary_sensor.is_off: temp_within_range
+        then:
+          - light.turn_off: rgb_light
+          - lambda: id(rtttl_buzzer).play("siren:d=8,o=5,b=100:d,e,d,e,d,e,d,e;");
+
+
+external_components:
+  - source: github://ApolloAutomation/ExternalComponents
+    components: [sht4x_custom] 
 
 ## TODO: Add Update
 ## TODO: Add Update Frequency Control
