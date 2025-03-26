@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  schedule:
+    - cron: '0 0 * * 1'
 
 jobs:
   ci:
@@ -9,13 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        file: # TODO: Rename
-          - Integrations/ESPHome/PLT-1.yaml
-          - Integrations/ESPHome/PLT-1_BLE.yaml
+        file:
+          - Integrations/ESPHome/TEMP_PRO-1_ETH.yaml
+          - Integrations/ESPHome/TEMP_PRO-1_W.yaml
+        esphome-version:
+          - stable
+          - beta
+          - dev
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4.1.7
       - name: Build ESPHome firmware to verify configuration
-        uses: esphome/build-action@v3.1.0
+        uses: esphome/build-action@v6
         with:
-          yaml_file: ${{ matrix.file }}
+          yaml-file: ${{ matrix.file }}
