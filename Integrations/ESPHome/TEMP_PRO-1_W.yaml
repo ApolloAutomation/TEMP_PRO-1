@@ -1,19 +1,19 @@
 esphome:
-  name: "${name}"
-  friendly_name: Apollo TEMP_PRO-1
-  comment: Apollo TEMP_PRO-1
+  name: "apollo-temp-pro-1-w"
+  friendly_name: Apollo TEMP_PRO-1 W
+  comment: Apollo TEMP_PRO-1 W
   name_add_mac_suffix: true
   platformio_options:
     board_build.flash_mode: dio
 
   project:
-    name: "ApolloAutomation.TEMP_PRO-1"
+    name: "ApolloAutomation.TEMP_PRO-1-W"
     version: "${version}"
 
   min_version: 2025.2.0
 
 dashboard_import:
-  package_import_url: github://ApolloAutomation/TEMP_PRO-1/Integrations/ESPHome/TEMP_PRO-1.yaml
+  package_import_url: github://ApolloAutomation/TEMP_PRO-1/Integrations/ESPHome/TEMP_PRO-1_W.yaml
   import_full_config: false
 
 ota:
@@ -31,8 +31,7 @@ update:
   - platform: http_request
     id: firmware_update
     name: Firmware Update
-    source: https://apolloautomation.github.io/TEMP_PRO-1/firmware-l/manifest.json
-
+    source: https://apolloautomation.github.io/TEMP_PRO-1/firmware-w/manifest.json
 
 logger:
 

@@ -1,5 +1,4 @@
 substitutions:
-  name: apollo-temp-pro-1
   version: "25.2.24.1"
   device_description: ${name} made by Apollo Automation - version ${version}.
 
@@ -58,7 +57,6 @@ rtttl:
   id: rtttl_buzzer
   output: buzzer
 
-
 binary_sensor:
   - platform: status
     name: Online
@@ -75,8 +73,12 @@ binary_sensor:
   - platform: template
     name: Temperature Within Range
     id: temp_within_range
-    lambda: 'return (id(sht_temperature).state < id(max_temp).state) && (id(sht_temperature).state > id(min_temp).state) && id(alarm_outside_temp_range).state;'
+    lambda: 'return (id(sht_temperature).state < id(max_temp).state) && (id(sht_temperature).state > id(min_temp).state);'
 
+  - platform: template
+    name: Humidity Within Range
+    id: humidity_within_range
+    lambda: 'return (id(sht_humidity).state < id(max_humidity).state) && (id(sht_humidity).state > id(min_humidity).state);'
 
 sensor:
   - platform: internal_temperature
@@ -88,14 +90,13 @@ sensor:
     id: sys_uptime
     update_interval: 60s
 
-  - platform: sht4x_custom
+  - platform: sht3xd
     temperature:
       name: "Temperature"
       id: sht_temperature
     humidity:
       name: "Relative Humidity"
       id: sht_humidity
-
 
 light:
   - platform: esp32_rmt_led_strip
@@ -134,8 +135,8 @@ number:
   - platform: template
     id: min_temp
     name: Min Temperature
-    min_value: -20
-    max_value: 50
+    min_value: -60
+    max_value: 100
     step: 0.1
     unit_of_measurement: '°C'
     initial_value: -20
@@ -146,11 +147,35 @@ number:
   - platform: template
     id: max_temp
     name: Max Temperature
-    min_value: -20
-    max_value: 50
+    min_value: -60
+    max_value: 100
     step: 0.1
     unit_of_measurement: '°C'
     initial_value: 200
+    optimistic: true
+    update_interval: never
+    mode: box
+
+  - platform: template
+    id: min_humidity
+    name: Min Humidity
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    unit_of_measurement: '%'
+    initial_value: 0
+    optimistic: true
+    update_interval: never
+    mode: box
+
+  - platform: template
+    id: max_humidity
+    name: Max Humidity
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    unit_of_measurement: '%'
+    initial_value: 100
     optimistic: true
     update_interval: never
     mode: box
@@ -172,24 +197,34 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
 
+  - platform: template
+    name: "Alarm Outside Humidity Range"
+    id: alarm_outside_humidity_range    
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
 interval:  
-  - interval: 10s    
+  - interval: 10s
+    startup_delay: 10s
     then:
-      if:
-        condition:
-          binary_sensor.is_off: temp_within_range
-        then:
-          - light.turn_off: rgb_light
-          - lambda: id(rtttl_buzzer).play("siren:d=8,o=5,b=100:d,e,d,e,d,e,d,e;");
+      - if:
+          condition:
+            lambda: !lambda |-
+              return (id(alarm_outside_temp_range).state && !id(temp_within_range).state) || (id(alarm_outside_humidity_range).state && !id(humidity_within_range).state);
+          then:
+            - lambda: !lambda |-
+                id(rgb_light).turn_on().set_effect("Fast Pulse").perform();
+                id(rgb_light).turn_on().set_rgb(1, 0, 0).set_transition_length(0).perform();
+                id(rtttl_buzzer).play("siren:d=8,o=5,b=100:d,e,d,e,d,e,d,e;");
+          else:
+            if:
+              condition:
+                lambda: !lambda |-
+                  return (id(temp_within_range).state && id(humidity_within_range).state);
+              then:
+                - light.turn_off: rgb_light
 
 
-external_components:
-  - source: github://ApolloAutomation/ExternalComponents
-    components: [sht4x_custom] 
-
-## TODO: Add Update
 ## TODO: Add Update Frequency Control
-## TODO: Add Beep for outside temp/humidity range
-## TODO: LED Blinks outside temp/humidity range
-## TODO: LED range for yellow/red
-## TODO: Add offset
+
+## TODO: Specific Repo For Lot
