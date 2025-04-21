@@ -1,6 +1,6 @@
 substitutions:
-  version: "25.3.26.1"
-  device_description: ${name} made by Apollo Automation - version ${version}.
+  version: "25.4.3.1"
+  device_description: $TEMP_PRO-1 made by Apollo Automation - version ${version}.
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -33,15 +33,6 @@ i2c:
 
 web_server:  
   port: 80
-  
-ethernet:  
-  type: W5500  
-  clk_pin: GPIO10  
-  mosi_pin: GPIO12 
-  miso_pin: GPIO11
-  cs_pin: GPIO9
-  interrupt_pin: GPIO13
-  reset_pin: GPIO14
 
 one_wire:
   - platform: gpio
@@ -69,21 +60,37 @@ binary_sensor:
         input: true
         pullup: true
     id: reset_button
+    on_press:
+      then:
+        - lambda: |-
+            id(button_press_timestamp) = millis();    
+    on_release:
+      then:
+        - lambda: |-
+            if (millis() - id(button_press_timestamp) >= 10000) {
+              // Remove Wifi
+              id(factory_reset_switch).turn_on();
+            }
+            else {
+              // StatusCheck
+              id(statusCheck).execute();
+            }
 
   - platform: template
     name: Temperature Within Range
     id: temp_within_range
-    lambda: 'return (id(sht_temperature).state < id(max_temp).state) && (id(sht_temperature).state > id(min_temp).state);'
+    lambda: 'return (id(sht_temperature).state <= id(max_temp).state) && (id(sht_temperature).state >= id(min_temp).state);'
 
   - platform: template
     name: Humidity Within Range
     id: humidity_within_range
-    lambda: 'return (id(sht_humidity).state < id(max_humidity).state) && (id(sht_humidity).state > id(min_humidity).state);'
+    lambda: 'return (id(sht_humidity).state <= id(max_humidity).state) && (id(sht_humidity).state >= id(min_humidity).state);'
 
 sensor:
   - platform: internal_temperature
     name: "ESP Temperature"
     id: sys_esp_temperature
+    disabled_by_default: true
 
   - platform: uptime
     name: Uptime
@@ -122,6 +129,16 @@ light:
           max_brightness: 100%
 
 button:
+  - platform: template
+    name: "Update Firmware"
+    id: update_firmware
+    entity_category: config
+    on_press:
+      then:
+        - lambda: |-
+            id(update_http_request).perform(true);
+    
+            
   - platform: restart
     icon: mdi:power-cycle
     name: "ESP Reboot"
@@ -130,6 +147,8 @@ button:
     disabled_by_default: True
     name: "Factory Reset ESP"
     id: factory_reset_all
+
+
 
 number:
   - platform: template
@@ -184,24 +203,53 @@ switch:
   - platform: factory_reset
     id: factory_reset_switch
     internal: true
+
   - platform: gpio
-    pin: GPIO5
+    pin: GPIO7
     name: "Accessory Power"
     id: accessory_power
     restore_mode: ALWAYS_ON
     setup_priority: 1100
     internal: true
+
   - platform: template
     name: "Alarm Outside Temp Range"
     id: alarm_outside_temp_range    
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
 
+    
   - platform: template
     name: "Alarm Outside Humidity Range"
     id: alarm_outside_humidity_range    
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
+
+select:
+  - platform: template
+    id: firmware_selector
+    name: Firmware Type
+    icon: "mdi:test-tube"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    options:
+      - "WiFi"
+      - "Ethernet"
+    initial_option: "WiFi"
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return id(firmware_selector).state == "Ethernet";'
+            then:
+              - logger.log: "OTA updates set to use ethernet firmware"
+              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PROJECT-1/firmware-e/manifest.json");
+              - component.update: update_http_request
+            else:
+              - logger.log: "OTA updates set to use wifi firmware"
+              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PROJECT-1/firmware-w/manifest.json");
+              - component.update: update_http_request
 
 interval:  
   - interval: 10s
@@ -224,7 +272,9 @@ interval:
               then:
                 - light.turn_off: rgb_light
 
-
-## TODO: Add Update Frequency Control
-
-## TODO: Specific Repo For Lot
+text_sensor:
+  - platform: template
+    name: "OTA URL"
+    id: ota_url
+    entity_category: "diagnostic"
+    internal: true
