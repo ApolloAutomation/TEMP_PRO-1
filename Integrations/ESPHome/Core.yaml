@@ -104,6 +104,25 @@ sensor:
     humidity:
       name: "Relative Humidity"
       id: sht_humidity
+  - platform: dps310
+    id: dps_310
+    pressure:
+      name: "DPS310 Pressure"
+      id: dps310pressure
+    temperature:
+      id: dps310temperature
+      internal: true
+    update_interval: 30s
+  - platform: scd4x
+    id: scd40
+    co2:
+      name: "CO2"
+      id: "co2"
+    automatic_self_calibration: false
+    update_interval: 60s
+    measurement_mode: "periodic"
+    i2c_id: bus_a
+    ambient_pressure_compensation_source: dps310pressure
 
 light:
   - platform: esp32_rmt_led_strip
