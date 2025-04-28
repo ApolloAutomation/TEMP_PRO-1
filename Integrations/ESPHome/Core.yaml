@@ -1,5 +1,5 @@
 substitutions:
-  version: "25.4.3.1"
+  version: "25.4.28.1"
   device_description: $TEMP_PRO-1 made by Apollo Automation - version ${version}.
 
 esp32:
@@ -104,25 +104,6 @@ sensor:
     humidity:
       name: "Relative Humidity"
       id: sht_humidity
-  - platform: dps310
-    id: dps_310
-    pressure:
-      name: "DPS310 Pressure"
-      id: dps310pressure
-    temperature:
-      id: dps310temperature
-      internal: true
-    update_interval: 30s
-  - platform: scd4x
-    id: scd40
-    co2:
-      name: "CO2"
-      id: "co2"
-    automatic_self_calibration: false
-    update_interval: 60s
-    measurement_mode: "periodic"
-    i2c_id: bus_a
-    ambient_pressure_compensation_source: dps310pressure
 
 light:
   - platform: esp32_rmt_led_strip
@@ -181,6 +162,7 @@ number:
     optimistic: true
     update_interval: never
     mode: box
+    entity_category: config
 
   - platform: template
     id: max_temp
@@ -193,6 +175,7 @@ number:
     optimistic: true
     update_interval: never
     mode: box
+    entity_category: config
 
   - platform: template
     id: min_humidity
@@ -205,6 +188,7 @@ number:
     optimistic: true
     update_interval: never
     mode: box
+    entity_category: config
 
   - platform: template
     id: max_humidity
@@ -217,6 +201,8 @@ number:
     optimistic: true
     update_interval: never
     mode: box
+    entity_category: config
+
 
 switch:
   - platform: factory_reset
