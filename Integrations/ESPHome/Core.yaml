@@ -230,6 +230,12 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
 
+  - platform: template
+    name: "Alarm Controls LEDs"
+    id: alarm_control_leds    
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON    
+
 select:
   - platform: template
     id: firmware_selector
@@ -265,15 +271,22 @@ interval:
             lambda: !lambda |-
               return (id(alarm_outside_temp_range).state && !id(temp_within_range).state) || (id(alarm_outside_humidity_range).state && !id(humidity_within_range).state);
           then:
-            - lambda: !lambda |-
-                id(rgb_light).turn_on().set_effect("Fast Pulse").perform();
-                id(rgb_light).turn_on().set_rgb(1, 0, 0).set_transition_length(0).perform();
-                id(rtttl_buzzer).play("siren:d=8,o=5,b=100:d,e,d,e,d,e,d,e;");
+            - if:
+                condition:
+                  switch.is_on: alarm_control_leds
+                then:
+                  - lambda: !lambda |-
+                      id(rgb_light).turn_on().set_effect("Fast Pulse").perform();
+                      id(rgb_light).turn_on().set_rgb(1, 0, 0).set_transition_length(0).perform();
+                      id(rtttl_buzzer).play("siren:d=8,o=5,b=100:d,e,d,e,d,e,d,e;");
+                else:
+                  - lambda: !lambda |-
+                      id(rtttl_buzzer).play("siren:d=8,o=5,b=100:d,e,d,e,d,e,d,e;");
           else:
             if:
               condition:
                 lambda: !lambda |-
-                  return (id(temp_within_range).state && id(humidity_within_range).state);
+                  return (id(temp_within_range).state && id(humidity_within_range).state && id(alarm_control_leds).state);
               then:
                 - light.turn_off: rgb_light
 
