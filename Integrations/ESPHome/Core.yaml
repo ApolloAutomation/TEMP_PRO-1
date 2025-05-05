@@ -234,7 +234,8 @@ switch:
     name: "Alarm Controls LEDs"
     id: alarm_control_leds    
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON    
+    restore_mode: RESTORE_DEFAULT_ON
+    entity_category: CONFIG
 
 select:
   - platform: template
