@@ -89,7 +89,6 @@ binary_sensor:
   - platform: template
     name: Alarm Active
     id: alarm_active
-    update_interval: 1s
     lambda: 'return (id(alarm_outside_temp_range).state && !id(temp_within_range).state) || (id(alarm_outside_humidity_range).state && !id(humidity_within_range).state);'
     on_release:
       then:
