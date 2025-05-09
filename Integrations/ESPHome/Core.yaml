@@ -1,5 +1,5 @@
 substitutions:
-  version: "25.4.28.1"
+  version: "25.5.9.1"
   device_description: $TEMP_PRO-1 made by Apollo Automation - version ${version}.
 
 esp32:
@@ -85,6 +85,15 @@ binary_sensor:
     name: Humidity Within Range
     id: humidity_within_range
     lambda: 'return (id(sht_humidity).state <= id(max_humidity).state) && (id(sht_humidity).state >= id(min_humidity).state);'
+
+  - platform: template
+    name: Alarm Active
+    id: alarm_active
+    update_interval: 1s
+    lambda: 'return (id(alarm_outside_temp_range).state && !id(temp_within_range).state) || (id(alarm_outside_humidity_range).state && !id(humidity_within_range).state);'
+    on_release:
+      then:
+        - light.turn_off: rgb_light
 
 sensor:
   - platform: internal_temperature
@@ -256,26 +265,19 @@ select:
               - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PROJECT-1/firmware-w/manifest.json");
               - component.update: update_http_request
 
-interval:  
+interval:
   - interval: 10s
     startup_delay: 10s
     then:
       - if:
           condition:
             lambda: !lambda |-
-              return (id(alarm_outside_temp_range).state && !id(temp_within_range).state) || (id(alarm_outside_humidity_range).state && !id(humidity_within_range).state);
+              return id(alarm_active).state;
           then:
             - lambda: !lambda |-
                 id(rgb_light).turn_on().set_effect("Fast Pulse").perform();
                 id(rgb_light).turn_on().set_rgb(1, 0, 0).set_transition_length(0).perform();
                 id(rtttl_buzzer).play("siren:d=8,o=5,b=100:d,e,d,e,d,e,d,e;");
-          else:
-            if:
-              condition:
-                lambda: !lambda |-
-                  return (id(temp_within_range).state && id(humidity_within_range).state);
-              then:
-                - light.turn_off: rgb_light
 
 text_sensor:
   - platform: template
