@@ -107,11 +107,31 @@ sensor:
 
   - platform: sht3xd
     temperature:
-      name: "Temperature"
+      name: "SHT Temperature"
       id: sht_temperature
     humidity:
-      name: "Relative Humidity"
+      name: "SHT Relative Humidity"
       id: sht_humidity
+
+  - platform: dallas_temp
+    name: "Dallas Temperature Probe"
+    update_interval: 60s
+    id: temp_probe
+    filters:
+      - lambda: |-
+          if (isnan(x)) {
+            return NAN;
+          }
+
+          if (x == 85.0) {
+              return NAN;
+          }
+
+          if (id(temp_probe_select).state == "Food") {
+            return NAN;
+          }
+
+          return x;
 
 light:
   - platform: esp32_rmt_led_strip
@@ -237,32 +257,6 @@ switch:
     id: alarm_outside_humidity_range    
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-
-select:
-  - platform: template
-    id: firmware_selector
-    name: Firmware Type
-    icon: "mdi:test-tube"
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    options:
-      - "WiFi"
-      - "Ethernet"
-    initial_option: "WiFi"
-    on_value:
-      then:
-        - if:
-            condition:
-              lambda: 'return id(firmware_selector).state == "Ethernet";'
-            then:
-              - logger.log: "OTA updates set to use ethernet firmware"
-              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PROJECT-1/firmware-e/manifest.json");
-              - component.update: update_http_request
-            else:
-              - logger.log: "OTA updates set to use wifi firmware"
-              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PROJECT-1/firmware-w/manifest.json");
-              - component.update: update_http_request
 
 interval:
   - interval: 10s
