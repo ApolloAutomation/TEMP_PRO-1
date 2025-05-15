@@ -131,10 +131,6 @@ sensor:
               return NAN;
           }
 
-          if (id(temp_probe_select).state == "Food") {
-            return NAN;
-          }
-
           return x;
 
 light:
