@@ -79,12 +79,13 @@ binary_sensor:
   - platform: template
     name: Temperature Within Range
     id: temp_within_range
-    lambda: 'return (id(sht_temperature).state <= id(max_temp).state) && (id(sht_temperature).state >= id(min_temp).state);'
+    lambda: 'bool sht_valid = !isnan(id(sht_temperature).state); bool dallas_valid = !isnan(id(temp_probe).state); bool sht_in_range = !sht_valid || ((id(sht_temperature).state <= id(max_temp).state) && (id(sht_temperature).state >= id(min_temp).state)); bool dallas_in_range = !dallas_valid || ((id(temp_probe).state <= id(max_temp).state) && (id(temp_probe).state >= id(min_temp).state)); return (sht_valid || dallas_valid) && sht_in_range && dallas_in_range;'
 
   - platform: template
     name: Humidity Within Range
     id: humidity_within_range
-    lambda: 'return (id(sht_humidity).state <= id(max_humidity).state) && (id(sht_humidity).state >= id(min_humidity).state);'
+    # Note: If additional humidity sensors are added, expand this logic following the temperature sensor pattern
+    lambda: 'bool sht_valid = !isnan(id(sht_humidity).state); bool sht_in_range = !sht_valid || ((id(sht_humidity).state <= id(max_humidity).state) && (id(sht_humidity).state >= id(min_humidity).state)); return (sht_valid) && sht_in_range;'
 
   - platform: template
     name: Alarm Active
