@@ -9,6 +9,7 @@ esp32:
     type: esp-idf
 
 api:
+  id: api_server
   services:
     - service: play_buzzer
       variables:
@@ -31,11 +32,13 @@ i2c:
   scl: GPIO17
   id: bus_a
 
-web_server:  
+web_server:
+  id: webserver
   port: 80
 
 one_wire:
   - platform: gpio
+    id: one_wire_bus
     pin: GPIO6
 
 # Buzzer
@@ -171,13 +174,12 @@ button:
   - platform: restart
     icon: mdi:power-cycle
     name: "ESP Reboot"
+    id: restart_button
 
   - platform: factory_reset
     disabled_by_default: True
     name: "Factory Reset ESP"
     id: factory_reset_all
-
-
 
 number:
   - platform: template
@@ -261,6 +263,7 @@ switch:
 
 interval:
   - interval: 10s
+    id: alarm_check_interval
     startup_delay: 10s
     then:
       - if:
