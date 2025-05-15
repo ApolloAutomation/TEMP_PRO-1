@@ -27,6 +27,14 @@ http_request:
 
 safe_mode:
 
+improv_serial:
+
+esp32_improv:
+  authorizer: none
+
+web_server:
+  port: 80
+
 update:
   - platform: http_request
     id: update_http_request
@@ -35,11 +43,17 @@ update:
 
 logger:
 
+captive_portal:
+
 wifi:
+  id: wifi_1
+  on_connect:
+    - delay: 5s
+    - ble.disable:
+  on_disconnect:
+    - ble.enable:
   ap:
     ssid: "Apollo TEMP_PRO-1 Hotspot"
-
-captive_portal:
 
 script:
   - id: statusCheck
@@ -77,6 +91,32 @@ script:
                       blue: 0%
       - delay: 5s
       - light.turn_off: rgb_light
+
+select:
+  - platform: template
+    id: firmware_selector
+    name: Firmware Type
+    icon: "mdi:test-tube"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    options:
+      - "WiFi"
+      - "Ethernet"
+    initial_option: "WiFi"
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return id(firmware_selector).state == "Ethernet";'
+            then:
+              - logger.log: "OTA updates set to use ethernet firmware"
+              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PROJECT-1/firmware-e/manifest.json");
+              - component.update: update_http_request
+            else:
+              - logger.log: "OTA updates set to use wifi firmware"
+              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PROJECT-1/firmware-w/manifest.json");
+              - component.update: update_http_request
 
 packages:
   core: !include Core.yaml

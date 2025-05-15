@@ -1,5 +1,5 @@
 substitutions:
-  version: "25.5.14.2"
+  version: "25.5.15.1"
   device_description: $TEMP_PRO-1 made by Apollo Automation - version ${version}.
 
 esp32:
@@ -9,6 +9,7 @@ esp32:
     type: esp-idf
 
 api:
+  id: api_server
   services:
     - service: play_buzzer
       variables:
@@ -31,11 +32,13 @@ i2c:
   scl: GPIO17
   id: bus_a
 
-web_server:  
+web_server:
+  id: webserver
   port: 80
 
 one_wire:
   - platform: gpio
+    id: one_wire_bus
     pin: GPIO6
 
 # Buzzer
@@ -79,12 +82,13 @@ binary_sensor:
   - platform: template
     name: Temperature Within Range
     id: temp_within_range
-    lambda: 'return (id(sht_temperature).state <= id(max_temp).state) && (id(sht_temperature).state >= id(min_temp).state);'
+    lambda: 'bool sht_valid = !isnan(id(sht_temperature).state); bool dallas_valid = !isnan(id(temp_probe).state); bool sht_in_range = !sht_valid || ((id(sht_temperature).state <= id(max_temp).state) && (id(sht_temperature).state >= id(min_temp).state)); bool dallas_in_range = !dallas_valid || ((id(temp_probe).state <= id(max_temp).state) && (id(temp_probe).state >= id(min_temp).state)); return (sht_valid || dallas_valid) && sht_in_range && dallas_in_range;'
 
   - platform: template
     name: Humidity Within Range
     id: humidity_within_range
-    lambda: 'return (id(sht_humidity).state <= id(max_humidity).state) && (id(sht_humidity).state >= id(min_humidity).state);'
+    # Note: If additional humidity sensors are added, expand this logic following the temperature sensor pattern
+    lambda: 'bool sht_valid = !isnan(id(sht_humidity).state); bool sht_in_range = !sht_valid || ((id(sht_humidity).state <= id(max_humidity).state) && (id(sht_humidity).state >= id(min_humidity).state)); return (sht_valid) && sht_in_range;'
 
   - platform: template
     name: Alarm Active
@@ -107,11 +111,27 @@ sensor:
 
   - platform: sht3xd
     temperature:
-      name: "Temperature"
+      name: "SHT Temperature"
       id: sht_temperature
     humidity:
-      name: "Relative Humidity"
+      name: "SHT Relative Humidity"
       id: sht_humidity
+
+  - platform: dallas_temp
+    name: "Dallas Temperature Probe"
+    update_interval: 60s
+    id: temp_probe
+    filters:
+      - lambda: |-
+          if (isnan(x)) {
+            return NAN;
+          }
+
+          if (x == 85.0) {
+              return NAN;
+          }
+
+          return x;
 
 light:
   - platform: esp32_rmt_led_strip
@@ -150,13 +170,12 @@ button:
   - platform: restart
     icon: mdi:power-cycle
     name: "ESP Reboot"
+    id: restart_button
 
   - platform: factory_reset
     disabled_by_default: True
     name: "Factory Reset ESP"
     id: factory_reset_all
-
-
 
 number:
   - platform: template
@@ -238,35 +257,10 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
 
-select:
-  - platform: template
-    id: firmware_selector
-    name: Firmware Type
-    icon: "mdi:test-tube"
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    options:
-      - "WiFi"
-      - "Ethernet"
-    initial_option: "WiFi"
-    on_value:
-      then:
-        - if:
-            condition:
-              lambda: 'return id(firmware_selector).state == "Ethernet";'
-            then:
-              - logger.log: "OTA updates set to use ethernet firmware"
-              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PROJECT-1/firmware-e/manifest.json");
-              - component.update: update_http_request
-            else:
-              - logger.log: "OTA updates set to use wifi firmware"
-              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PROJECT-1/firmware-w/manifest.json");
-              - component.update: update_http_request
-
 interval:
   - interval: 10s
-    startup_delay: 10s
+    id: alarm_check_interval
+    startup_delay: 60s
     then:
       - if:
           condition:
