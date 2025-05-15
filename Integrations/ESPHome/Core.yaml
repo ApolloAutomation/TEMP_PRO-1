@@ -260,7 +260,7 @@ switch:
 interval:
   - interval: 10s
     id: alarm_check_interval
-    startup_delay: 10s
+    startup_delay: 60s
     then:
       - if:
           condition:
