@@ -1,5 +1,5 @@
 substitutions:
-  version: "25.6.1.1"
+  version: "25.6.2.1"
   device_description: $TEMP_PRO-1 made by Apollo Automation - version ${version}.
 
 esp32:
@@ -199,7 +199,7 @@ number:
     max_value: 100
     step: 0.1
     unit_of_measurement: '°C'
-    initial_value: 200
+    initial_value: 100
     optimistic: true
     update_interval: never
     mode: box
