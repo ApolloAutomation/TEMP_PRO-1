@@ -1,23 +1,26 @@
-# Apollo AIR-1
+# Apollo TEMP_PRO-1
 
-![Pen no dust](https://github.com/ApolloAutomation/AIR-1/assets/24777085/183af36d-4611-4cb3-af1e-43b84d4d201a)
+![temp_pro-1](https://github.com/user-attachments/assets/b9f547fa-b824-4b06-a1f4-70b196adf913)
 
+Key Features of the TEMP_PRO-1 Sensor:
 
-Key Features of the AIR-1 Sensor:
+PoE (IEEE 802.3-compliant) or USB-C powered.
 
-MiCS-4514 Below have individual gas % readout: CO, C2H5OH (Alcohol), H2, NO2, and NH3
+Optional Probe addons:
 
-SCD40: CO2 and includes temperature and humidity sensing capabilities. 
+    1.5m (~5ft) Waterproof Flat Cable (DS18B20) -55°C to 85°C (-67°F to 185°F), ±0.5°C accuracy. Ideal for fridges, freezers, fish tanks etc.
+    20cm (~8in) Waterproof Flat Cable (DS18B20) -55°C to 85°C (-67°F to 185°F), ±0.5°C accuracy.
+    12.7cm (~5 in) Dust-proof temperature & humidity sensor with waterproof probe (SHT20).
 
-SEN55: Particulate matter (PM1, PM2.5, PM10), VOCs, NOx, humidity, and temperature. 
+Optional GPIO Header addon and SCD40 CO2 sensor with two mezzanine ports.
 
-DPS310: Barometric air pressure and temperature.
+It also includes a Sensirion port for a [SEN55 and SEN6x](https://sensirion.com/products/catalog/SEN55), a [QWIIC port](https://www.sparkfun.com/qwiic), and a [DfRobot port](https://www.dfrobot.com/topic-282.html).
 
 Dimensions & Design: 
 
-The AIR-1 measures just 61mm x 61mm x 30mm, and we have focused on efficient heat management within this small package to maintain sensor accuracy. This includes a thoughtful PCB layout and case design, incorporating ventilation and strategic component placement. 
+The TEMP_Pro-1 measures just 92mm x 62mm x 38mm. This includes a thoughtful PCB layout and case design, incorporating ventilation and strategic component placement. 
 
 Links: \
-Discord (Support/feedback/discussion/future products): [https://discord.gg/8PpS4yUaUh](https://discord.gg/mMNgQPyF94) \
-Shop: [https://apolloautomation.com](https://apolloautomation.com/products/air-1)https://apolloautomation.com/products/air-1 \
-Wiki: [https://wiki.apolloautomation.com](https://wiki.apolloautomation.com/)https://wiki.apolloautomation.com/ 
+Discord (Support/feedback/discussion/future products): [Click here to join the discord!](https://dsc.gg/apolloautomation) \
+Shop: [https://apolloautomation.com](https://apolloautomation.com/) \
+Wiki: [https://wiki.apolloautomation.com](https://wiki.apolloautomation.com/) 
