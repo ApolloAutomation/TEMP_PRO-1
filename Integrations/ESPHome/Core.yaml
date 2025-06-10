@@ -238,7 +238,7 @@ number:
     max_value: 100
     step: 0.1
     unit_of_measurement: '°C'
-    initial_value: 200
+    initial_value: 100
     optimistic: true
     update_interval: never
     mode: box
