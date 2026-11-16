@@ -2,6 +2,24 @@ external_components:
   - source: github://ApolloAutomation/esphome-battery-component
     components: [max17048] #Forked OptionZero
 
+# Deep sleep for battery-powered units. Every image includes this file; Core.yaml
+# holds the device awake while Ethernet is connected (a wired unit never sleeps).
+esphome:
+  on_boot:
+    - priority: 500
+      then:
+        - lambda: |-
+            id(deep_sleep_1).set_sleep_duration(id(deep_sleep_sleep_duration).state * 60 * 60 * 1000);
+        - if:
+            condition:
+              or:
+                - binary_sensor.is_on: ota_mode
+                - switch.is_on: prevent_sleep
+            then:
+              - lambda: |-
+                  ESP_LOGW("Apollo", "Preventing Deep Sleep Due To OTA On Boot");
+                  id(deep_sleep_1).prevent_deep_sleep();
+
 deep_sleep:
   id: deep_sleep_1
   sleep_duration: 12h
