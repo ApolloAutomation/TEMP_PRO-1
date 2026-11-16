@@ -1,6 +1,42 @@
 substitutions:
-  version: "25.6.10.1"
+  version: "26.11.15.1"
   device_description: $TEMP_PRO-1 made by Apollo Automation - version ${version}.
+
+  # Manifest URL bases. Stable = GitHub Pages (main branch builds).
+  # Beta = rolling "beta-fw" pre-release assets (beta branch builds).
+  stable_manifest_base: "https://apolloautomation.github.io/TEMP_PRO-1"
+  beta_manifest_base: "https://github.com/ApolloAutomation/TEMP_PRO-1/releases/download/beta-fw"
+
+  # OTA manifest URLs per Firmware Type (WiFi/Ethernet) and Firmware Channel.
+  # Beta names match what build-beta.yml uploads (manifest-<key>.json).
+  ota_stable_manifest_wifi: "${stable_manifest_base}/firmware-w/manifest.json"
+  ota_stable_manifest_ethernet: "${stable_manifest_base}/firmware-e/manifest.json"
+  ota_beta_manifest_wifi: "${beta_manifest_base}/manifest-w.json"
+  ota_beta_manifest_ethernet: "${beta_manifest_base}/manifest-e.json"
+
+  # Bluetooth Proxy switch state on a device with no stored preference yet.
+  # TEMP_PRO-1 never proxied before this switch was added, so it ships off.
+  bluetooth_proxy_restore_mode: RESTORE_DEFAULT_OFF
+
+esphome:
+  # List form so package merging concatenates with each variant's own on_boot
+  # entries (mapping form would be replaced by the variant's block instead).
+  on_boot:
+    - priority: -100
+      then:
+        - script.execute: apply_ota_source
+    # Re-apply the Bluetooth Proxy switch after all components set up, so BLE
+    # scanning matches the switch state restored from flash.
+    - priority: -300
+      then:
+        - if:
+            condition:
+              switch.is_on: bluetooth_proxy_switch
+            then:
+              - esp32_ble_tracker.start_scan:
+                  continuous: true
+            else:
+              - esp32_ble_tracker.stop_scan:
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -9,8 +45,16 @@ esp32:
   framework:
     type: esp-idf
 
+esp32_ble_tracker:
+  id: ble_tracker
+  scan_parameters:
+    continuous: true
+
+bluetooth_proxy:
+
 api:
   id: api_server
+  encryption:
   services:
     - service: play_buzzer
       variables:
@@ -48,6 +92,18 @@ globals:
     restore_value: no
     type: uint32_t
     initial_value: '0'
+  - id: runTest
+    restore_value: no
+    type: bool
+    initial_value: "false"
+  - id: testCycleCount
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: sht30Passed
+    restore_value: no
+    type: bool
+    initial_value: "false"
 
 i2c:
   sda: GPIO16
@@ -94,11 +150,22 @@ binary_sensor:
         - lambda: |-
             if (millis() - id(button_press_timestamp) >= 10000) {
               // Remove Wifi
+              id(prevent_sleep).turn_on();
               id(factory_reset_switch).turn_on();
+            }
+            else if (millis() - id(button_press_timestamp) >= 3000) {
+              //Turn Prevent Sleep On
+              id(prevent_sleep).turn_on();
+              //Prevent Sleep
+              id(deep_sleep_1).prevent_deep_sleep();
             }
             else {
               // StatusCheck
               id(statusCheck).execute();
+              delay(3000);
+              id(testCycleCount) = 0;
+              id(runTest) = true;
+              id(testScript).execute();
             }
 
   - platform: template
@@ -181,7 +248,7 @@ light:
     default_transition_length: 0s
     chipset: WS2812
     num_leds: 4
-    rgb_order: grb
+    channel_colors: GRB
     effects:
       - pulse:
           name: "Slow Pulse"
@@ -200,13 +267,31 @@ button:
   - platform: template
     name: "Update Firmware"
     id: update_firmware
+    icon: mdi:cloud-download
     entity_category: config
     on_press:
-      then:
-        - lambda: |-
-            id(update_http_request).perform(true);
-    
-            
+      - logger.log: "Applying firmware update for the selected channel"
+      # OTA download needs the device awake for its whole duration.
+      - lambda: |-
+          id(deep_sleep_1).prevent_deep_sleep();
+      - delay: 3s
+      - script.execute: apply_ota_source
+      - script.wait: apply_ota_source
+      # The manifest fetch runs in its own task; give it a fixed window to land
+      # (update.is_available stays false for same-version switches).
+      - delay: 5s
+      - lambda: id(update_http_request).perform(true);
+      # Only reached if the update did not start (e.g. manifest unreachable).
+      # Re-arm deep sleep unless something else is holding the device awake.
+      - if:
+          condition:
+            and:
+              - switch.is_off: prevent_sleep
+              - binary_sensor.is_off: ota_mode
+          then:
+            - lambda: |-
+                id(deep_sleep_1).allow_deep_sleep();
+
   - platform: restart
     icon: mdi:power-cycle
     name: "ESP Reboot"
@@ -317,6 +402,35 @@ switch:
               - lambda: |- 
                   id(deep_sleep_1).allow_deep_sleep();
 
+  - platform: template
+    name: "Bluetooth Proxy"
+    id: bluetooth_proxy_switch
+    icon: mdi:bluetooth
+    entity_category: "config"
+    restore_mode: ${bluetooth_proxy_restore_mode}
+    optimistic: true
+    on_turn_on:
+      - esp32_ble_tracker.start_scan:
+          continuous: true
+    on_turn_off:
+      - esp32_ble_tracker.stop_scan:
+
+select:
+  - platform: template
+    name: "Firmware Channel"
+    id: firmware_channel
+    icon: mdi:source-branch
+    entity_category: "config"
+    optimistic: true
+    restore_value: true
+    options:
+      - "Stable"
+      - "Beta"
+    initial_option: "Stable"
+    on_value:
+      then:
+        - script.execute: apply_ota_source
+
 interval:
   - interval: 10s
     id: alarm_check_interval
@@ -324,6 +438,70 @@ interval:
     then:
       - script.execute: alarm_script
 script:
+  - id: apply_ota_source
+    # Sets the OTA manifest URL from the Firmware Type (WiFi/Ethernet) and
+    # Firmware Channel (Stable/Beta) selects.
+    then:
+      - lambda: |-
+          const bool beta = id(firmware_channel).current_option() == "Beta";
+          const bool eth = id(firmware_selector).current_option() == "Ethernet";
+          const char *url = eth
+              ? (beta ? "${ota_beta_manifest_ethernet}" : "${ota_stable_manifest_ethernet}")
+              : (beta ? "${ota_beta_manifest_wifi}" : "${ota_stable_manifest_wifi}");
+          ESP_LOGI("firmware", "OTA manifest set to: %s", url);
+          id(update_http_request).set_source_url(url);
+      - component.update: update_http_request
+
+  - id: testScript
+    then:
+      if:
+        condition:
+          - lambda: "return id(runTest) == true;"
+        then:
+          - lambda: "id(runTest) = false;"
+          - lambda: "id(testCycleCount) = 0;"
+          - switch.turn_on: accessory_power
+          - component.update: sht30
+          - while:
+              condition:
+                - lambda: "return id(testCycleCount) < 5;"
+              then:
+                - if:
+                    condition:
+                      - lambda: "return id(sht30Passed) == false;"
+                    then:
+                      - if:
+                          condition:
+                            - lambda: "return !isnan(id(sht_temperature).state) && id(sht_temperature).state > -40 && id(sht_temperature).state < 125;"
+                          then:
+                            - lambda: "id(sht30Passed) = true;"
+                - if:
+                    condition:
+                      - lambda: "return id(sht30Passed);"
+                    then:
+                      - lambda: "id(testCycleCount) = 10;"
+                - delay: 1s
+                - lambda: "id(testCycleCount) += 1;"
+
+          #Check If Test Passed To Trigger Lights
+          - if:
+              condition:
+                - lambda: "return id(sht30Passed);"
+              then:
+                - light.turn_on:
+                    id: rgb_light
+                    red: 0%
+                    green: 100%
+                    blue: 0%
+              else:
+                - light.turn_on:
+                    id: rgb_light
+                    red: 100%
+                    green: 0%
+                    blue: 0%
+          - delay: 5s
+          - light.turn_off: rgb_light
+
   - id: alarm_script
     then:
       - if:
@@ -342,3 +520,9 @@ text_sensor:
     id: ota_url
     entity_category: "diagnostic"
     internal: true
+
+  - platform: template
+    name: "Apollo Firmware Version"
+    id: apollo_firmware_version
+    update_interval: never
+    entity_category: "diagnostic"

@@ -10,10 +10,14 @@ esphome:
     name: "ApolloAutomation.TEMP_PRO-1-W"
     version: "${version}"
 
-  min_version: 2025.2.0
+  # improv_ble (renamed from esp32_improv) needs 2026.10
+  min_version: 2026.10.0
   on_boot:
     - priority: 500
       then:
+        - text_sensor.template.publish:
+            id: apollo_firmware_version
+            state: "${version}"
         - lambda: |-
             id(deep_sleep_1).set_sleep_duration(id(deep_sleep_sleep_duration).state * 60 * 60 * 1000);
         - if:
@@ -38,12 +42,20 @@ ota:
 
 http_request:
   verify_ssl: true
+  # GitHub release-asset downloads answer with a redirect carrying a
+  # ~3.6 KB Content-Security-Policy header; each header line must fit
+  # this buffer or the request fails with "HTTP_CLIENT: Out of buffer".
+  buffer_size_rx: 5120
+  # The redirect target is a signed URL with a ~850-char query string; the
+  # follow-up request line must fit the TX buffer or esp_http_client_open
+  # fails with "Out of buffer" before sending anything.
+  buffer_size_tx: 2048
 
 safe_mode:
 
 improv_serial:
 
-esp32_improv:
+improv_ble:
   authorizer: none
 
 web_server:
@@ -61,11 +73,10 @@ captive_portal:
 
 wifi:
   id: wifi_1
+  # Keeps today's no-reboot on lost Wi-Fi; 2026.11 drops the AP exemption
+  reboot_timeout: 0s
   on_connect:
-    - delay: 5s
-    - ble.disable:
-  on_disconnect:
-    - ble.enable:
+    - component.update: update_http_request
   ap:
     ssid: "Apollo TEMP_PRO-1 Hotspot"
 
@@ -120,17 +131,7 @@ select:
     initial_option: "WiFi"
     on_value:
       then:
-        - if:
-            condition:
-              lambda: 'return id(firmware_selector).state == "Ethernet";'
-            then:
-              - logger.log: "OTA updates set to use ethernet firmware"
-              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PRO-1/firmware-e/manifest.json");
-              - component.update: update_http_request
-            else:
-              - logger.log: "OTA updates set to use wifi firmware"
-              - lambda: id(update_http_request).set_source_url("https://apolloautomation.github.io/TEMP_PRO-1/firmware-w/manifest.json");
-              - component.update: update_http_request
+        - script.execute: apply_ota_source
 
 packages:
   core: !include Core.yaml
