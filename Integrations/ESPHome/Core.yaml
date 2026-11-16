@@ -160,12 +160,8 @@ binary_sensor:
               id(deep_sleep_1).prevent_deep_sleep();
             }
             else {
-              // StatusCheck
-              id(statusCheck).execute();
-              delay(3000);
-              id(testCycleCount) = 0;
-              id(runTest) = true;
-              id(testScript).execute();
+              // StatusCheck, then self-test (non-blocking)
+              id(buttonTapScript).execute();
             }
 
   - platform: template
@@ -220,6 +216,13 @@ sensor:
     temperature:
       name: "SHT Temperature"
       id: sht_temperature
+      on_value:
+        # Fires only on a successful read (the driver never publishes on a
+        # failed one), so the self-test cannot pass on a stale value.
+        - lambda: |-
+            if (!isnan(x) && x > -40 && x < 125) {
+              id(sht30Passed) = true;
+            }
     humidity:
       name: "SHT Relative Humidity"
       id: sht_humidity
@@ -452,6 +455,21 @@ script:
           id(update_http_request).set_source_url(url);
       - component.update: update_http_request
 
+  - id: buttonTapScript
+    # Boot button tap: show network/HA status, then run the self-test.
+    # statusCheck is stopped before the test so its 5 s timer cannot turn
+    # off the test result LED.
+    mode: restart
+    then:
+      - script.execute: statusCheck
+      - delay: 3s
+      - script.stop: statusCheck
+      - light.turn_off: rgb_light
+      - lambda: |-
+          id(testCycleCount) = 0;
+          id(runTest) = true;
+      - script.execute: testScript
+
   - id: testScript
     then:
       if:
@@ -460,8 +478,10 @@ script:
         then:
           - lambda: "id(runTest) = false;"
           - lambda: "id(testCycleCount) = 0;"
+          # Cleared every run; only a fresh in-range SHT reading
+          # (sht_temperature on_value) sets it again.
+          - lambda: "id(sht30Passed) = false;"
           - switch.turn_on: accessory_power
-          - component.update: sht30
           - while:
               condition:
                 - lambda: "return id(testCycleCount) < 5;"
@@ -470,17 +490,13 @@ script:
                     condition:
                       - lambda: "return id(sht30Passed) == false;"
                     then:
-                      - if:
-                          condition:
-                            - lambda: "return !isnan(id(sht_temperature).state) && id(sht_temperature).state > -40 && id(sht_temperature).state < 125;"
-                          then:
-                            - lambda: "id(sht30Passed) = true;"
+                      - component.update: sht30
+                      - delay: 1s
                 - if:
                     condition:
                       - lambda: "return id(sht30Passed);"
                     then:
                       - lambda: "id(testCycleCount) = 10;"
-                - delay: 1s
                 - lambda: "id(testCycleCount) += 1;"
 
           #Check If Test Passed To Trigger Lights
