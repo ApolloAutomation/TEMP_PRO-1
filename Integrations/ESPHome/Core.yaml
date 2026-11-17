@@ -203,8 +203,21 @@ button:
     entity_category: config
     on_press:
       then:
+        - logger.log: "Applying firmware update for the selected firmware type"
         - lambda: |-
-            id(update_http_request).perform(true);
+            id(deep_sleep_1).prevent_deep_sleep();
+        - script.execute: install_selected_channel
+        - script.wait: install_selected_channel
+        # Re-arm sleep only when nothing is being flashed and nothing else holds the device awake.
+        - if:
+            condition:
+              and:
+                - lambda: 'return id(update_http_request).state != update::UPDATE_STATE_INSTALLING;'
+                - switch.is_off: prevent_sleep
+                - binary_sensor.is_off: ota_mode
+            then:
+              - lambda: |-
+                  id(deep_sleep_1).allow_deep_sleep();
     
             
   - platform: restart
@@ -324,6 +337,58 @@ interval:
     then:
       - script.execute: alarm_script
 script:
+  # The update component drops a check requested while another one is running,
+  # so keep asking until install_selected_channel has what it needs. The
+  # manifest URL itself is set by the Firmware Type select.
+  - id: request_channel_manifest
+    mode: restart
+    then:
+      - repeat:
+          count: 4
+          then:
+            - component.update: update_http_request
+            - delay: 5s
+
+  # Forced install, but only of a manifest fetched after this press for the
+  # selected firmware type. mode single: a second press while this runs is ignored.
+  - id: install_selected_channel
+    mode: single
+    then:
+      # Mark the cached firmware URL as old. Only a successful check replaces it.
+      - lambda: |-
+          std::string &fw = const_cast<std::string &>(id(update_http_request).update_info.firmware_url);
+          if (fw.rfind('!', 0) != 0) fw.insert(0, "!");
+      - script.execute: request_channel_manifest
+      # Wait for a check without error whose firmware sits in the directory of
+      # the selected manifest (relative paths are merged with it).
+      - wait_until:
+          timeout: 20s
+          condition:
+            lambda: |-
+              const char *src = id(update_http_request).get_source_url();
+              const size_t dir = strrchr(src, '/') - src + 1;
+              return !id(update_http_request).status_has_error() &&
+                     strncmp(id(update_http_request).update_info.firmware_url.c_str(), src, dir) == 0;
+      - script.stop: request_channel_manifest
+      - lambda: |-
+          std::string &fw = const_cast<std::string &>(id(update_http_request).update_info.firmware_url);
+          const char *src = id(update_http_request).get_source_url();
+          const size_t dir = strrchr(src, '/') - src + 1;
+          const bool err = id(update_http_request).status_has_error();
+          const char *why = nullptr;
+          if (fw.rfind('!', 0) == 0) {
+            why = err ? "the manifest check failed" : "no manifest arrived within 20s";
+            fw.erase(0, 1);  // put the old URL back for the update entity
+          } else if (err || strncmp(fw.c_str(), src, dir) != 0) {
+            why = "the manifest that arrived is not for the selected firmware type";
+          }
+          if (why != nullptr) {
+            ESP_LOGW("firmware", "Firmware Update: %s (%s); not installing", why, src);
+            return;
+          }
+          ESP_LOGI("firmware", "Installing %s", fw.c_str());
+          id(update_http_request).perform(true);
+
   - id: alarm_script
     then:
       - if:
