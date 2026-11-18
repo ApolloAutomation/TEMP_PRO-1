@@ -386,8 +386,6 @@ i2c:
 web_server:
   id: webserver
   port: 80
-  # No firmware upload from the device page; the setup hotspot still allows it
-  ota: false
 
 one_wire:
   - platform: gpio
